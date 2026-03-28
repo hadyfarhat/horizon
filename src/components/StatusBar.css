@@ -1,0 +1,67 @@
+.status-bar {
+  position:        absolute;
+  top:             16px;
+  right:           16px;
+  z-index:         10;
+  display:         flex;
+  align-items:     center;
+  gap:             12px;
+  background:      rgba(10, 22, 40, 0.85);
+  border:          1px solid rgba(255, 255, 255, 0.1);
+  border-radius:   8px;
+  padding:         8px 14px;
+  backdrop-filter: blur(6px);
+}
+
+.status-item {
+  display:     flex;
+  align-items: center;
+  gap:         6px;
+}
+
+.status-label {
+  font-size:      12px;
+  font-family:    'Inter', sans-serif;
+  color:          rgba(255, 255, 255, 0.85);
+  letter-spacing: 0.03em;
+}
+
+.status-divider {
+  width:      1px;
+  height:     16px;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* Coloured dot for connection state */
+.status-dot {
+  width:         8px;
+  height:        8px;
+  border-radius: 50%;
+  flex-shrink:   0;
+}
+
+/* Pulsing animation for reconnecting state */
+.status-dot--pulse {
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1;   transform: scale(1); }
+  50%       { opacity: 0.4; transform: scale(0.8); }
+}
+
+/* Spinning loader for OpenSky initial fetch */
+.spinner {
+  display:       inline-block;
+  width:         8px;
+  height:        8px;
+  border:        2px solid rgba(255, 255, 255, 0.2);
+  border-top:    2px solid rgba(255, 255, 255, 0.85);
+  border-radius: 50%;
+  animation:     spin 0.8s linear infinite;
+  flex-shrink:   0;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
