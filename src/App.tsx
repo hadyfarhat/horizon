@@ -86,9 +86,14 @@ export default function App() {
     const disconnectAIS = connectAISStream(
       (asset) => {
         setVessels(prev => {
+          // Once at cap, only update vessels already being tracked — don't add new ones.
+          // New vessels are admitted only when very-stale ones are pruned (every 30s).
+          // This keeps the displayed set stable and prevents constant marker turnover.
+          if (!prev.has(asset.id) && prev.size >= VESSEL_CAP) return prev
+
           const next = new Map(prev)
           next.set(asset.id, asset)
-          return enforceVesselCap(next, VESSEL_CAP)
+          return next
         })
 
         // If this vessel is currently selected, keep its detail panel up to date
@@ -98,10 +103,17 @@ export default function App() {
     )
 
     // Recalculate confidence scores for all assets on a 30-second timer.
-    // This ensures stale/very-stale colouring updates even when no new data arrives.
+    // Also prune very-stale vessels to make room for newly active ones.
     const confidenceInterval = setInterval(() => {
       setAircraft(prev => refreshConfidence(prev))
-      setVessels(prev => refreshConfidence(prev))
+      setVessels(prev => {
+        const updated = refreshConfidence(prev)
+        // Remove vessels that have been silent for over 5 minutes
+        for (const [id, asset] of updated) {
+          if (asset.confidence === 'very-stale') updated.delete(id)
+        }
+        return updated
+      })
     }, CONFIDENCE_INTERVAL_MS)
 
     // Clean up all subscriptions and timers on unmount
@@ -123,6 +135,7 @@ export default function App() {
       <Globe
         aircraft={aircraft}
         vessels={vessels}
+        selectedAsset={selectedAsset}
         onSelectAsset={setSelectedAsset}
       />
     </div>

@@ -9,10 +9,11 @@ Ion.defaultAccessToken = import.meta.env.VITE_CESIUM_TOKEN as string
 interface GlobeProps {
   aircraft:      Map<string, Asset>
   vessels:       Map<string, Asset>
+  selectedAsset: Asset | null
   onSelectAsset: (asset: Asset) => void
 }
 
-export default function Globe({ aircraft, vessels, onSelectAsset }: GlobeProps) {
+export default function Globe({ aircraft, vessels, selectedAsset, onSelectAsset }: GlobeProps) {
   // Combine both maps into a single flat array for rendering
   const allAssets = [...aircraft.values(), ...vessels.values()]
 
@@ -34,6 +35,7 @@ export default function Globe({ aircraft, vessels, onSelectAsset }: GlobeProps) 
         <AssetMarker
           key={asset.id}
           asset={asset}
+          isSelected={selectedAsset?.id === asset.id}
           onSelect={onSelectAsset}
         />
       ))}
