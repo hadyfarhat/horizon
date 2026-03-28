@@ -10,9 +10,12 @@ const STATES_URL = 'https://opensky-network.org/api/states/all'
 const CLIENT_ID     = import.meta.env.VITE_OPENSKY_CLIENT_ID as string
 const CLIENT_SECRET = import.meta.env.VITE_OPENSKY_CLIENT_SECRET as string
 
+// Module-level token cache — shared across all calls within the same session
 let cachedToken: string | null = null
 let tokenExpiresAt = 0
 
+// Exchanges client credentials for a Bearer token from the OpenSky auth server.
+// Caches the token for 29 minutes (tokens last 30) to avoid unnecessary round trips.
 async function getAccessToken(): Promise<string> {
   if (cachedToken && Date.now() < tokenExpiresAt) {
     return cachedToken
@@ -31,12 +34,13 @@ async function getAccessToken(): Promise<string> {
   )
 
   cachedToken = response.data.access_token
-  // Cache for 29 minutes to avoid using an about-to-expire token
   tokenExpiresAt = Date.now() + 29 * 60 * 1000
 
   return cachedToken
 }
 
+// Maps a raw OpenSky state vector (positional array) to the common Asset model.
+// Returns null for grounded aircraft or those with missing position data.
 function normaliseStateVector(state: OpenSkyStateVector): Asset | null {
   const latitude  = state[6]
   const longitude = state[5]
@@ -44,13 +48,14 @@ function normaliseStateVector(state: OpenSkyStateVector): Asset | null {
 
   if (onGround || latitude === null || longitude === null) return null
 
+  // OpenSky provides last_contact as a Unix timestamp (seconds)
   const lastContact = state[4]
   const lastUpdated = new Date(lastContact * 1000)
 
   return {
     id:          state[0],
     type:        'aircraft',
-    name:        state[1]?.trim() || state[0],
+    name:        state[1]?.trim() || state[0], // callsigns have trailing spaces; fall back to icao24
     latitude,
     longitude,
     altitude:    state[7],
@@ -62,6 +67,8 @@ function normaliseStateVector(state: OpenSkyStateVector): Asset | null {
   }
 }
 
+// Fetches all airborne aircraft from the OpenSky REST API.
+// Handles token expiry by invalidating the cache and retrying once on a 401.
 export async function fetchAircraft(): Promise<Asset[]> {
   const token = await getAccessToken()
 
@@ -72,7 +79,7 @@ export async function fetchAircraft(): Promise<Asset[]> {
     })
   } catch (err) {
     if (axios.isAxiosError(err) && err.response?.status === 401) {
-      // Token may have expired — invalidate cache and retry once
+      // Token expired mid-session — clear cache and fetch a fresh one
       cachedToken = null
       tokenExpiresAt = 0
       const freshToken = await getAccessToken()
