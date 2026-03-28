@@ -13,13 +13,26 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
   // Flush headers immediately so the browser knows the stream has started
   res.flushHeaders()
 
+  // Guard flag — prevents writing to the response after it has been ended
+  // (e.g. browser disconnects, which closes the WS, which would trigger onclose)
+  let ended = false
+
+  function end() {
+    if (ended) return
+    ended = true
+    res.end()
+  }
+
   const ws = new WebSocket('wss://stream.aisstream.io/v0/stream')
 
   ws.onopen = () => {
-    // Subscribe to global PositionReport messages once the upstream connection is live
+    // Subscribe to PositionReport messages within Northern Europe.
+    // Restricting the bounding box reduces message volume to a manageable rate
+    // and keeps the vessel display focused on a coherent geographic area.
+    // Bounds: lat 48–72°N, lon -10–30°E (covers UK, North Sea, Baltic, Scandinavia)
     ws.send(JSON.stringify({
       APIKey:             process.env.VITE_AISSTREAM_KEY ?? '',
-      BoundingBoxes:      [[[-90, -180], [90, 180]]],
+      BoundingBoxes:      [[[48, -10], [72, 30]]],
       FilterMessageTypes: ['PositionReport'],
     }))
 
@@ -28,6 +41,7 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   ws.onmessage = async (event) => {
+    if (ended) return
     try {
       // Handle both string and Blob formats (Node's native WebSocket returns Blobs)
       const raw = event.data instanceof Blob
@@ -45,17 +59,21 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   ws.onclose = () => {
+    if (ended) return
     res.write('event: status\ndata: disconnected\n\n')
-    res.end()
+    end()
   }
 
   ws.onerror = () => {
+    if (ended) return
     res.write('event: status\ndata: disconnected\n\n')
-    res.end()
+    end()
   }
 
-  // Clean up the upstream WebSocket when the browser disconnects
+  // When the browser disconnects, close the upstream WebSocket.
+  // Setting ended=true first prevents onclose from attempting to write back.
   req.on('close', () => {
+    ended = true
     ws.close()
   })
 }
