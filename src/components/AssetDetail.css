@@ -1,0 +1,95 @@
+.asset-detail {
+  padding:       16px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink:   0;
+}
+
+.asset-detail--empty {
+  display:         flex;
+  align-items:     center;
+  justify-content: center;
+  min-height:      80px;
+}
+
+.asset-detail__empty-text {
+  margin:      0;
+  font-size:   12px;
+  font-family: 'Inter', sans-serif;
+  color:       rgba(255, 255, 255, 0.3);
+  text-align:  center;
+}
+
+/* Header row */
+.asset-detail__header {
+  display:     flex;
+  align-items: center;
+  gap:         8px;
+  margin-bottom: 12px;
+}
+
+.asset-detail__icon {
+  font-size: 16px;
+}
+
+.asset-detail__name {
+  flex:        1;
+  font-size:   14px;
+  font-family: 'Inter', sans-serif;
+  font-weight: 600;
+  color:       #ffffff;
+  white-space: nowrap;
+  overflow:    hidden;
+  text-overflow: ellipsis;
+}
+
+/* Field rows */
+.asset-detail__fields {
+  margin:  0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.asset-detail__row {
+  display:         flex;
+  justify-content: space-between;
+  align-items:     baseline;
+  gap:             8px;
+}
+
+.asset-detail__row dt {
+  font-size:   11px;
+  font-family: 'Inter', sans-serif;
+  color:       rgba(255, 255, 255, 0.4);
+  flex-shrink: 0;
+}
+
+.asset-detail__row dd {
+  margin:      0;
+  font-size:   12px;
+  font-family: 'Inter', sans-serif;
+  color:       rgba(255, 255, 255, 0.85);
+  text-align:  right;
+}
+
+.asset-detail__mono {
+  font-family: 'Courier New', monospace !important;
+  font-size:   11px !important;
+}
+
+/* Confidence badges */
+.badge {
+  font-size:      10px;
+  font-family:    'Inter', sans-serif;
+  font-weight:    600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding:        2px 7px;
+  border-radius:  4px;
+  flex-shrink:    0;
+}
+
+.badge--fresh      { background: rgba(76, 175, 80, 0.2);  color: #81C784; border: 1px solid rgba(76, 175, 80, 0.4); }
+.badge--stale      { background: rgba(255, 165, 0, 0.2);  color: #FFB74D; border: 1px solid rgba(255, 165, 0, 0.4); }
+.badge--very-stale { background: rgba(244, 67, 54, 0.2);  color: #EF9A9A; border: 1px solid rgba(244, 67, 54, 0.4); }
