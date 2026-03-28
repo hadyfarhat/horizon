@@ -109,7 +109,6 @@ export default function App() {
         aircraft={aircraft}
         vessels={vessels}
         selectedAsset={selectedAsset}
-        wsStatus={wsStatus}
       />
       <Globe
         aircraft={aircraft}
