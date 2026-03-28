@@ -79,7 +79,7 @@ export default function AssetDetail({ asset }: AssetDetailProps) {
         </div>
         {asset.country && (
           <div className="asset-detail__row">
-            <dt>Country</dt>
+            <dt>Origin</dt>
             <dd>{asset.country}</dd>
           </div>
         )}
