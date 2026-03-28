@@ -1,4 +1,10 @@
-// Stub — implemented in Task 24
+import './Header.css'
+
 export default function Header() {
-  return null
+  return (
+    <div className="header">
+      <h1 className="header__title">HORIZON</h1>
+      <p className="header__subtitle">Domain Awareness Dashboard</p>
+    </div>
+  )
 }

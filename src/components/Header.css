@@ -1,0 +1,24 @@
+.header {
+  padding:       20px 20px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink:   0;
+}
+
+.header__title {
+  margin:         0;
+  font-size:      20px;
+  font-family:    'Inter', sans-serif;
+  font-weight:    700;
+  letter-spacing: 0.2em;
+  color:          #ffffff;
+}
+
+.header__subtitle {
+  margin:         4px 0 0;
+  font-size:      11px;
+  font-family:    'Inter', sans-serif;
+  font-weight:    400;
+  letter-spacing: 0.08em;
+  color:          rgba(255, 255, 255, 0.45);
+  text-transform: uppercase;
+}
