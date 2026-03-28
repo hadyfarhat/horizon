@@ -27,3 +27,4 @@ credentials.json
 *.njsproj
 *.sln
 *.sw?
+.vercel

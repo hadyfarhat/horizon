@@ -3,9 +3,10 @@ import type { OpenSkyResponse, OpenSkyStateVector } from '../types/OpenSky'
 import type { Asset } from '../types/Asset'
 import { calculateConfidence } from '../utils/confidence'
 
-const TOKEN_URL =
-  'https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token'
-const STATES_URL = 'https://opensky-network.org/api/states/all'
+// Relative URLs — proxied through Vite in dev and Vercel rewrites in production
+// This avoids CORS since the browser sees same-origin requests
+const TOKEN_URL  = '/opensky-auth/auth/realms/opensky-network/protocol/openid-connect/token'
+const STATES_URL = '/opensky-api/api/states/all'
 
 const CLIENT_ID     = import.meta.env.VITE_OPENSKY_CLIENT_ID as string
 const CLIENT_SECRET = import.meta.env.VITE_OPENSKY_CLIENT_SECRET as string
