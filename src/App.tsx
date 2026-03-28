@@ -1,121 +1,121 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { useState, useEffect, useCallback } from 'react'
+import type { Asset } from './types/Asset'
+import type { ConnectionStatus } from './types/ConnectionStatus'
+import { fetchAircraft } from './services/opensky'
+import { connectAISStream } from './services/aisstream'
+import { calculateConfidence } from './utils/confidence'
+import Globe from './components/Globe'
+import Sidebar from './components/Sidebar'
+import StatusBar from './components/StatusBar'
 
-function App() {
-  const [count, setCount] = useState(0)
+const AIRCRAFT_CAP           = 300
+const VESSEL_CAP             = 200
+const OPENSKY_INTERVAL_MS    = 15_000  // poll OpenSky every 15 seconds
+const CONFIDENCE_INTERVAL_MS = 30_000  // recalculate confidence every 30 seconds
 
-  return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+// Removes the oldest assets by lastUpdated until the map is within the given cap.
+function enforceAssetCap(map: Map<string, Asset>, cap: number): Map<string, Asset> {
+  if (map.size <= cap) return map
 
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+  const entries = [...map.entries()].sort(
+    ([, a], [, b]) => b.lastUpdated.getTime() - a.lastUpdated.getTime() // newest first
   )
+
+  return new Map(entries.slice(0, cap))
 }
 
-export default App
+// Recalculates confidence for every asset in the map based on current time.
+function refreshConfidence(map: Map<string, Asset>): Map<string, Asset> {
+  const next = new Map(map)
+  for (const [id, asset] of next) {
+    next.set(id, { ...asset, confidence: calculateConfidence(asset.lastUpdated) })
+  }
+  return next
+}
+
+export default function App() {
+  const [aircraft, setAircraft]             = useState<Map<string, Asset>>(new Map())
+  const [vessels, setVessels]               = useState<Map<string, Asset>>(new Map())
+  const [selectedAsset, setSelectedAsset]   = useState<Asset | null>(null)
+  const [wsStatus, setWsStatus]             = useState<ConnectionStatus>('disconnected')
+  const [openSkyLoading, setOpenSkyLoading] = useState<boolean>(true)
+
+  // Fetches the latest aircraft snapshot from OpenSky and merges it into state.
+  // Sets openSkyLoading to false after the first call regardless of success or failure.
+  const pollOpenSky = useCallback(async () => {
+    try {
+      const assets = await fetchAircraft()
+
+      setAircraft(prev => {
+        const next = new Map(prev)
+        for (const asset of assets) {
+          next.set(asset.id, asset)
+        }
+        return enforceAssetCap(next, AIRCRAFT_CAP)
+      })
+
+      // If the selected asset is an aircraft, update it with the latest position
+      setSelectedAsset(prev => {
+        if (prev?.type !== 'aircraft') return prev
+        return assets.find(a => a.id === prev.id) ?? prev
+      })
+    } catch (err) {
+      console.error('OpenSky fetch failed:', err)
+    } finally {
+      // Always clear the loading flag after the first attempt
+      setOpenSkyLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    // Initial OpenSky fetch then poll on interval
+    pollOpenSky()
+    const openSkyInterval = setInterval(pollOpenSky, OPENSKY_INTERVAL_MS)
+
+    // Connect to AISStream via the SSE proxy
+    const disconnectAIS = connectAISStream(
+      (asset) => {
+        setVessels(prev => {
+          const next = new Map(prev)
+          next.set(asset.id, asset)
+          return enforceAssetCap(next, VESSEL_CAP)
+        })
+
+        // If this vessel is currently selected, keep its detail panel up to date
+        setSelectedAsset(prev => prev?.id === asset.id ? asset : prev)
+      },
+      (status) => setWsStatus(status),
+    )
+
+    // Recalculate confidence scores for all assets on a 30-second timer.
+    // This ensures stale/very-stale colouring updates even when no new data arrives.
+    const confidenceInterval = setInterval(() => {
+      setAircraft(prev => refreshConfidence(prev))
+      setVessels(prev => refreshConfidence(prev))
+    }, CONFIDENCE_INTERVAL_MS)
+
+    // Clean up all subscriptions and timers on unmount
+    return () => {
+      clearInterval(openSkyInterval)
+      clearInterval(confidenceInterval)
+      disconnectAIS()
+    }
+  }, [pollOpenSky])
+
+  return (
+    <div style={{ width: '100vw', height: '100vh', position: 'relative' }}>
+      <StatusBar openSkyLoading={openSkyLoading} wsStatus={wsStatus} />
+      <Sidebar
+        aircraft={aircraft}
+        vessels={vessels}
+        selectedAsset={selectedAsset}
+        wsStatus={wsStatus}
+      />
+      <Globe
+        aircraft={aircraft}
+        vessels={vessels}
+        onSelectAsset={setSelectedAsset}
+      />
+    </div>
+  )
+}
