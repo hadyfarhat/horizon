@@ -1,0 +1,85 @@
+.asset-feed {
+  display:    flex;
+  flex-direction: column;
+  flex:       1;
+  overflow:   hidden;
+  padding:    16px 20px 0;
+}
+
+.asset-feed__title {
+  margin:         0 0 10px;
+  font-size:      11px;
+  font-family:    'Inter', sans-serif;
+  font-weight:    600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color:          rgba(255, 255, 255, 0.4);
+  flex-shrink:    0;
+}
+
+.asset-feed__empty {
+  margin:      0;
+  font-size:   12px;
+  font-family: 'Inter', sans-serif;
+  color:       rgba(255, 255, 255, 0.3);
+}
+
+.asset-feed__list {
+  list-style:  none;
+  margin:      0;
+  padding:     0;
+  overflow-y:  auto;
+  flex:        1;
+}
+
+/* Each feed row */
+.asset-feed__row {
+  display:     flex;
+  align-items: center;
+  gap:         6px;
+  padding:     7px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.asset-feed__row:last-child {
+  border-bottom: none;
+}
+
+.asset-feed__icon {
+  font-size:   13px;
+  flex-shrink: 0;
+}
+
+.asset-feed__name {
+  flex:          1;
+  font-size:     12px;
+  font-family:   'Inter', sans-serif;
+  color:         rgba(255, 255, 255, 0.85);
+  white-space:   nowrap;
+  overflow:      hidden;
+  text-overflow: ellipsis;
+  min-width:     0;
+}
+
+.asset-feed__time {
+  font-size:   10px;
+  font-family: 'Courier New', monospace;
+  color:       rgba(255, 255, 255, 0.3);
+  flex-shrink: 0;
+}
+
+/* Confidence badges in the feed */
+.feed-badge {
+  font-size:      9px;
+  font-family:    'Inter', sans-serif;
+  font-weight:    600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding:        2px 5px;
+  border-radius:  3px;
+  flex-shrink:    0;
+}
+
+.feed-badge--fresh      { background: rgba(76, 175, 80, 0.2);  color: #81C784; }
+.feed-badge--stale      { background: rgba(255, 165, 0, 0.2);  color: #FFB74D; }
+.feed-badge--very-stale { background: rgba(244, 67, 54, 0.2);  color: #EF9A9A; }
