@@ -3,22 +3,18 @@ import type { Asset } from '../types/Asset'
 import type { ConnectionStatus } from '../types/ConnectionStatus'
 import { calculateConfidence } from '../utils/confidence'
 
-const WS_URL    = 'wss://stream.aisstream.io/v0/stream'
-const API_KEY   = import.meta.env.VITE_AISSTREAM_KEY as string
-
-// Reconnection config — starts at 1s, doubles on each failure, caps at 30s
-const INITIAL_DELAY = 1000
-const MAX_DELAY     = 30000
+// Our Vercel Function proxy — connects to AISStream server-side and relays
+// messages to the browser via SSE (AISStream blocks direct browser WebSocket connections)
+const SSE_URL = '/api/aisstream'
 
 // Normalises an AISStream PositionReport message to the common Asset model.
 function normaliseAISMessage(msg: AISMessage): Asset {
   const { MetaData, Message } = msg
   const { PositionReport }    = Message
 
-  // time_utc arrives as a UTC string — parse directly to Date
   const lastUpdated = new Date(MetaData.time_utc)
 
-  // Prefer TrueHeading; fall back to Course over Ground when heading is unavailable (511 = not available per AIS spec)
+  // Prefer TrueHeading; fall back to Course over Ground (511 = not available per AIS spec)
   const heading =
     PositionReport.TrueHeading !== 511
       ? PositionReport.TrueHeading
@@ -39,59 +35,44 @@ function normaliseAISMessage(msg: AISMessage): Asset {
   }
 }
 
-// Opens a WebSocket connection to AISStream and keeps it alive with exponential backoff.
-// Calls onAsset for each incoming vessel position and onStatusChange on connection state transitions.
-// Returns a cleanup function that permanently closes the connection (used on component unmount).
+// Connects to the AISStream proxy via SSE and calls onAsset for each incoming vessel position.
+// EventSource handles reconnection to the proxy automatically on network drops.
+// Custom 'status' events from the proxy convey the upstream AISStream connection state.
+// Returns a cleanup function for use in useEffect.
 export function connectAISStream(
   onAsset:        (asset: Asset) => void,
   onStatusChange: (status: ConnectionStatus) => void,
 ): () => void {
-  let socket: WebSocket | null = null
-  let reconnectDelay = INITIAL_DELAY
-  let cancelled = false // set to true when the caller wants a permanent close
+  let es: EventSource | null = null
+  let cancelled = false
 
   function connect() {
     if (cancelled) return
 
-    socket = new WebSocket(WS_URL)
+    onStatusChange('reconnecting')
 
-    socket.onopen = () => {
-      onStatusChange('connected')
-      reconnectDelay = INITIAL_DELAY // reset backoff on successful connection
+    es = new EventSource(SSE_URL)
 
-      // Send subscription message immediately after connection is established
-      socket!.send(JSON.stringify({
-        APIKey:             API_KEY,
-        BoundingBoxes:      [[[-90, -180], [90, 180]]],
-        FilterMessageTypes: ['PositionReport'],
-      }))
-    }
-
-    socket.onmessage = (event: MessageEvent) => {
+    // Vessel position messages forwarded from AISStream by the proxy
+    es.onmessage = (event) => {
       try {
         const msg = JSON.parse(event.data as string) as AISMessage
-        if (msg.MessageType === 'PositionReport') {
-          onAsset(normaliseAISMessage(msg))
-        }
+        onAsset(normaliseAISMessage(msg))
       } catch {
         // Malformed message — skip silently
       }
     }
 
-    socket.onclose = () => {
-      if (cancelled) return
-      onStatusChange('reconnecting')
+    // Custom events sent by the proxy to reflect upstream AISStream connection state
+    es.addEventListener('status', (event) => {
+      const status = (event as MessageEvent).data as string
+      if (status === 'connected')    onStatusChange('connected')
+      if (status === 'disconnected') onStatusChange('reconnecting')
+    })
 
-      // Schedule reconnect with current delay, then double it for next attempt
-      setTimeout(() => {
-        reconnectDelay = Math.min(reconnectDelay * 2, MAX_DELAY)
-        connect()
-      }, reconnectDelay)
-    }
-
-    socket.onerror = () => {
-      // onerror is always followed by onclose, so reconnection is handled there
-      onStatusChange('reconnecting')
+    // SSE connection to the proxy was lost — EventSource will auto-reconnect
+    es.onerror = () => {
+      if (!cancelled) onStatusChange('reconnecting')
     }
   }
 
@@ -100,6 +81,7 @@ export function connectAISStream(
   // Return cleanup function for use in useEffect
   return () => {
     cancelled = true
-    socket?.close()
+    es?.close()
+    onStatusChange('disconnected')
   }
 }
