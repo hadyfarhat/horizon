@@ -4,6 +4,12 @@ import type { AISMessage } from '../src/types/AISStream'
 // AISStream blocks direct browser WebSocket connections.
 // This function acts as a server-side relay: it connects to AISStream via WebSocket
 // (no browser restrictions) and streams vessel data to the browser via SSE.
+
+// Heartbeat interval — server pings the browser every 10 seconds.
+// If the browser misses two consecutive heartbeats it closes and reconnects the EventSource,
+// which triggers the reconnecting status in the UI.
+const HEARTBEAT_INTERVAL_MS = 10_000
+
 export default function handler(req: VercelRequest, res: VercelResponse) {
   // Set SSE headers — keeps the HTTP connection open as a one-way stream
   res.setHeader('Content-Type', 'text/event-stream')
@@ -22,6 +28,19 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
     ended = true
     res.end()
   }
+
+  // Send a heartbeat comment every 10 seconds so the browser detects server death quickly.
+  // SSE comment lines (": ...") are ignored by the client but keep the TCP connection
+  // write-tested, causing an immediate error if the server process has died.
+  const heartbeat = setInterval(() => {
+    if (ended) return
+    try {
+      res.write(': heartbeat\n\n')
+    } catch {
+      clearInterval(heartbeat)
+      end()
+    }
+  }, HEARTBEAT_INTERVAL_MS)
 
   const ws = new WebSocket('wss://stream.aisstream.io/v0/stream')
 
@@ -59,12 +78,14 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   ws.onclose = () => {
+    clearInterval(heartbeat)
     if (ended) return
     res.write('event: status\ndata: disconnected\n\n')
     end()
   }
 
   ws.onerror = () => {
+    clearInterval(heartbeat)
     if (ended) return
     res.write('event: status\ndata: disconnected\n\n')
     end()
@@ -73,6 +94,7 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
   // When the browser disconnects, close the upstream WebSocket.
   // Setting ended=true first prevents onclose from attempting to write back.
   req.on('close', () => {
+    clearInterval(heartbeat)
     ended = true
     ws.close()
   })
