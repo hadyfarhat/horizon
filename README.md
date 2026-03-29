@@ -1,73 +1,115 @@
-# React + TypeScript + Vite
+# Horizon
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+**Maritime & Air Domain Awareness Dashboard** — live aircraft and vessel positions fused on a 3D globe.
 
-Currently, two official plugins are available:
+**Live demo:** https://horizon-demo-three.vercel.app
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+---
 
-## React Compiler
+## What this demonstrates
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Horizon applies the same design pattern used in professional systems integration: ingest data from multiple heterogeneous sources, process it into a common model, and present it in a meaningful way.
 
-## Expanding the ESLint configuration
+Specifically:
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+- Two live data pipelines running in parallel — one REST, one WebSocket
+- A common `Asset` model that normalises both sources so the rest of the app is source-agnostic
+- Server-side proxy functions (Vercel) to handle CORS restrictions and keep credentials out of the browser
+- Real-time connection management with heartbeat/watchdog and auto-reconnect
+- A confidence scoring system that colour-codes markers by data freshness
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+---
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+## Architecture
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```
+OpenSky REST API                    AISStream WebSocket
+      |                                     |
+      | poll every 15s                      | real-time push
+      v                                     v
+api/opensky.ts (Vercel Edge fn)     api/aisstream.ts (Vercel fn, SSE relay)
+- Basic auth                         - Connects to AISStream server-side
+- Bounding box: Northern Europe      - Forwards PositionReports via SSE
+- Returns state vectors              - Heartbeat every 10s
+      |                                     |
+      v                                     v
+src/services/opensky.ts             src/services/aisstream.ts
+- Normalise state vectors            - Normalise AISMessage
+- Filter grounded aircraft           - 25s watchdog + auto-reconnect
+      |                                     |
+      v                                     v
+                  Common Asset Model
+      { id, type, name, lat, lon, altitude,
+        speed, heading, country, lastUpdated, confidence }
+                          |
+              .-----------+-----------.
+              v                       v
+         Cesium Globe             Sidebar Panel
+         - Billboard markers      - Asset counts
+         - Oriented by heading    - Live feed (20 most recent)
+         - Coloured by confidence - Selected asset detail
+                                  - Connection status
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+AISStream blocks direct browser WebSocket connections. Both data sources run through Vercel functions: OpenSky as an Edge function (runs on Cloudflare's network, bypassing OpenSky's AWS IP blocks), AISStream as a Node.js SSE relay bridging the server-side WebSocket to the browser.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+---
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## Tech stack
+
+| Technology | Purpose |
+|------------|---------|
+| React + TypeScript | UI framework |
+| Vite 5 | Build tool |
+| Resium + CesiumJS | 3D globe rendering |
+| Vercel Edge Function | OpenSky proxy (Cloudflare network) |
+| Vercel Serverless Function | AISStream SSE relay |
+| SSE (EventSource) | Browser transport for real-time vessel data |
+
+---
+
+## Running locally
+
+```bash
+git clone https://github.com/your-username/horizon.git
+cd horizon
+npm install
 ```
+
+Create a `.env` file in the project root:
+
+```
+VITE_CESIUM_TOKEN=your_cesium_ion_access_token
+VITE_AISSTREAM_KEY=your_aisstream_api_key
+VITE_OPENSKY_USERNAME=your_opensky_username
+VITE_OPENSKY_PASSWORD=your_opensky_password
+```
+
+Start the dev server (Vercel CLI required for the API functions):
+
+```bash
+npx vercel dev
+```
+
+The app will be available at `http://localhost:3000`.
+
+---
+
+## Environment variables
+
+| Variable | Where to get it |
+|----------|----------------|
+| `VITE_CESIUM_TOKEN` | [cesium.com/ion](https://cesium.com/ion) — Access Tokens |
+| `VITE_AISSTREAM_KEY` | [aisstream.io](https://aisstream.io) — API Keys |
+| `VITE_OPENSKY_USERNAME` | [opensky-network.org](https://opensky-network.org) — register for a free account |
+| `VITE_OPENSKY_PASSWORD` | Same as above |
+
+For Vercel deployment, set these in **Project Settings > Environment Variables**.
+
+---
+
+## Data sources
+
+**OpenSky Network** — provides a REST API returning the current state of all tracked airborne aircraft. Each state vector is a positional array containing ICAO24 identifier, callsign, coordinates, altitude, speed, heading, and last contact timestamp. Polled every 15 seconds, restricted to Northern Europe (lat 48–72°N, lon −10–30°E).
+
+**AISStream** — provides real-time AIS (Automatic Identification System) vessel position data via WebSocket. AIS is the maritime equivalent of aircraft transponders — vessels broadcast their position, speed, and heading continuously. Restricted to Northern Europe to keep message volume manageable. The connection is maintained through a server-side SSE relay with heartbeat-based dead connection detection.
