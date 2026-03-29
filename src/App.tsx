@@ -46,13 +46,13 @@ export default function App() {
   const [aircraft, setAircraft]             = useState<Map<string, Asset>>(new Map())
   const [vessels, setVessels]               = useState<Map<string, Asset>>(new Map())
   const [selectedAsset, setSelectedAsset]   = useState<Asset | null>(null)
-  const [wsStatus, setWsStatus]             = useState<ConnectionStatus>('disconnected')
-  const [openSkyLoading, setOpenSkyLoading] = useState<boolean>(true)
+  const [wsStatus, setWsStatus]           = useState<ConnectionStatus>('disconnected')
+  const [openSkyStatus, setOpenSkyStatus] = useState<'loading' | 'ok' | 'error'>('loading')
 
   // Fetches the latest aircraft snapshot from OpenSky and replaces state entirely.
   // OpenSky returns a complete snapshot of all airborne aircraft, so there is no
   // benefit to merging — replacing gives a clean, consistent view each poll.
-  // Sets openSkyLoading to false after the first call regardless of success or failure.
+  // Updates openSkyStatus to reflect whether the last fetch succeeded or failed.
   const pollOpenSky = useCallback(async () => {
     try {
       const assets = await fetchAircraft()
@@ -63,17 +63,16 @@ export default function App() {
         .slice(0, AIRCRAFT_CAP)
 
       setAircraft(new Map(capped.map(a => [a.id, a])))
+      setOpenSkyStatus('ok')
 
       // If the selected asset is an aircraft, update it with the latest position
       setSelectedAsset(prev => {
         if (prev?.type !== 'aircraft') return prev
         return assets.find(a => a.id === prev.id) ?? prev
       })
-    } catch (err) {
-      console.error('OpenSky fetch failed:', err)
-    } finally {
-      // Always clear the loading flag after the first attempt
-      setOpenSkyLoading(false)
+    } catch {
+      // Mark as error so the status bar reflects the failed fetch
+      setOpenSkyStatus('error')
     }
   }, [])
 
@@ -126,7 +125,7 @@ export default function App() {
 
   return (
     <div style={{ width: '100vw', height: '100vh', position: 'relative' }}>
-      <StatusBar openSkyLoading={openSkyLoading} wsStatus={wsStatus} />
+      <StatusBar openSkyStatus={openSkyStatus} wsStatus={wsStatus} />
       <Sidebar
         aircraft={aircraft}
         vessels={vessels}

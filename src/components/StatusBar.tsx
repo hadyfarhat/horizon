@@ -2,8 +2,8 @@ import type { ConnectionStatus } from '../types/ConnectionStatus'
 import './StatusBar.css'
 
 interface StatusBarProps {
-  openSkyLoading: boolean
-  wsStatus:       ConnectionStatus
+  openSkyStatus: 'loading' | 'ok' | 'error'
+  wsStatus:      ConnectionStatus
 }
 
 // Label and colour for each WebSocket connection state
@@ -13,18 +13,26 @@ const WS_STATUS_CONFIG: Record<ConnectionStatus, { label: string; colour: string
   disconnected: { label: 'Disconnected', colour: '#F44336' },
 }
 
-export default function StatusBar({ openSkyLoading, wsStatus }: StatusBarProps) {
-  const ws = WS_STATUS_CONFIG[wsStatus]
+// Label and colour for each OpenSky fetch state
+const OPENSKY_STATUS_CONFIG = {
+  loading: { label: 'OpenSky', colour: null    },  // spinner — no dot colour
+  ok:      { label: 'OpenSky', colour: '#4CAF50' },
+  error:   { label: 'OpenSky', colour: '#F44336' },
+}
+
+export default function StatusBar({ openSkyStatus, wsStatus }: StatusBarProps) {
+  const ws      = WS_STATUS_CONFIG[wsStatus]
+  const openSky = OPENSKY_STATUS_CONFIG[openSkyStatus]
 
   return (
     <div className="status-bar">
-      {/* OpenSky loading indicator — shown only during the first 15s fetch */}
+      {/* OpenSky status — spinner on initial load, green on success, red on fetch failure */}
       <div className="status-item">
-        {openSkyLoading
+        {openSkyStatus === 'loading'
           ? <span className="spinner" aria-label="Loading aircraft" />
-          : <span className="status-dot" style={{ background: '#4CAF50' }} />
+          : <span className="status-dot" style={{ background: openSky.colour! }} />
         }
-        <span className="status-label">OpenSky</span>
+        <span className="status-label">{openSky.label}</span>
       </div>
 
       <div className="status-divider" />
