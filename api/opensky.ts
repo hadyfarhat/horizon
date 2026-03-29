@@ -65,9 +65,7 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
     res.status(200).json(openSkyRes.data)
   } catch (err) {
     // Include full error detail to help diagnose network-level failures
-    const message = err instanceof Error
-      ? `${err.message}${err.cause ? ` — cause: ${String(err.cause)}` : ''}`
-      : String(err)
+    const message = err instanceof Error ? err.message : String(err)
     res.status(500).json({ error: message })
   }
 }
