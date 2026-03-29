@@ -8,7 +8,7 @@ interface StatusBarProps {
 
 // Label and colour for each WebSocket connection state
 const WS_STATUS_CONFIG: Record<ConnectionStatus, { label: string; colour: string }> = {
-  connected:    { label: 'Live',         colour: '#4CAF50' },
+  connected:    { label: 'AIS Stream',   colour: '#4CAF50' },
   reconnecting: { label: 'Reconnecting', colour: '#FFA500' },
   disconnected: { label: 'Disconnected', colour: '#F44336' },
 }
