@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import axios from 'axios'
 
 // OpenSky OAuth2 token endpoint
 const TOKEN_URL  = 'https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token'
@@ -18,22 +19,19 @@ async function getAccessToken(): Promise<string> {
     return cachedToken
   }
 
-  const body = new URLSearchParams({
+  const params = new URLSearchParams({
     grant_type:    'client_credentials',
     client_id:     CLIENT_ID,
     client_secret: CLIENT_SECRET,
   })
 
-  const res = await fetch(TOKEN_URL, {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body:    body.toString(),
-  })
+  const res = await axios.post<{ access_token: string }>(
+    TOKEN_URL,
+    params.toString(),
+    { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } },
+  )
 
-  if (!res.ok) throw new Error(`Token fetch failed: ${res.status}`)
-
-  const data = await res.json() as { access_token: string }
-  cachedToken    = data.access_token
+  cachedToken    = res.data.access_token
   tokenExpiresAt = Date.now() + 29 * 60 * 1000
 
   return cachedToken
@@ -45,28 +43,31 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
   try {
     const token = await getAccessToken()
 
-    let openSkyRes = await fetch(STATES_URL, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-
-    if (openSkyRes.status === 401) {
-      // Token expired mid-session — clear cache and retry once with a fresh token
-      cachedToken = null
-      tokenExpiresAt = 0
-      const freshToken = await getAccessToken()
-      openSkyRes = await fetch(STATES_URL, {
-        headers: { Authorization: `Bearer ${freshToken}` },
+    let openSkyRes
+    try {
+      openSkyRes = await axios.get(STATES_URL, {
+        headers: { Authorization: `Bearer ${token}` },
       })
+    } catch (err) {
+      if (axios.isAxiosError(err) && err.response?.status === 401) {
+        // Token expired mid-session — clear cache and retry once with a fresh token
+        cachedToken = null
+        tokenExpiresAt = 0
+        const freshToken = await getAccessToken()
+        openSkyRes = await axios.get(STATES_URL, {
+          headers: { Authorization: `Bearer ${freshToken}` },
+        })
+      } else {
+        throw err
+      }
     }
 
-    if (!openSkyRes.ok) {
-      res.status(openSkyRes.status).json({ error: 'OpenSky request failed' })
-      return
-    }
-
-    const data = await openSkyRes.json()
-    res.status(200).json(data)
+    res.status(200).json(openSkyRes.data)
   } catch (err) {
-    res.status(500).json({ error: String(err) })
+    // Include full error detail to help diagnose network-level failures
+    const message = err instanceof Error
+      ? `${err.message}${err.cause ? ` — cause: ${String(err.cause)}` : ''}`
+      : String(err)
+    res.status(500).json({ error: message })
   }
 }
