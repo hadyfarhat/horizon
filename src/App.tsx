@@ -13,25 +13,6 @@ const VESSEL_CAP             = 50
 const OPENSKY_INTERVAL_MS    = 15_000  // poll OpenSky every 15 seconds
 const CONFIDENCE_INTERVAL_MS = 30_000  // recalculate confidence every 30 seconds
 
-// Removes very-stale vessels first, then oldest by lastUpdated if still over cap.
-// This keeps actively transmitting vessels on screen rather than rotating them out
-// whenever a new message arrives.
-function enforceVesselCap(map: Map<string, Asset>, cap: number): Map<string, Asset> {
-  if (map.size <= cap) return map
-
-  // First pass: remove very-stale vessels (silent for >5 minutes)
-  const next = new Map(map)
-  for (const [id, asset] of next) {
-    if (asset.confidence === 'very-stale') next.delete(id)
-    if (next.size <= cap) return next
-  }
-
-  // Second pass: if still over cap, remove oldest by lastUpdated
-  const entries = [...next.entries()].sort(
-    ([, a], [, b]) => b.lastUpdated.getTime() - a.lastUpdated.getTime() // newest first
-  )
-  return new Map(entries.slice(0, cap))
-}
 
 // Recalculates confidence for every asset in the map based on current time.
 function refreshConfidence(map: Map<string, Asset>): Map<string, Asset> {
