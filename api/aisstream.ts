@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import type { AISMessage } from '../src/types/AISStream'
+import type { AISMessage } from '../src/types/AISStream.js'
 
 // AISStream blocks direct browser WebSocket connections.
 // This function acts as a server-side relay: it connects to AISStream via WebSocket
