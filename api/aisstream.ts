@@ -29,13 +29,13 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
     res.end()
   }
 
-  // Send a heartbeat comment every 10 seconds so the browser detects server death quickly.
-  // SSE comment lines (": ...") are ignored by the client but keep the TCP connection
-  // write-tested, causing an immediate error if the server process has died.
+  // Send a named heartbeat event every 10 seconds.
+  // Using a named event (not an SSE comment) means the client can listen for it
+  // and reset its watchdog timer — SSE comments are invisible to EventSource handlers.
   const heartbeat = setInterval(() => {
     if (ended) return
     try {
-      res.write(': heartbeat\n\n')
+      res.write('event: heartbeat\ndata: ping\n\n')
     } catch {
       clearInterval(heartbeat)
       end()
@@ -71,6 +71,10 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
       const msg = JSON.parse(raw) as AISMessage
       if (msg.MessageType === 'PositionReport') {
         res.write(`data: ${raw}\n\n`)
+      } else {
+        // Forward non-position messages (e.g. auth errors) as status events so
+        // they're visible in the browser rather than silently dropped
+        res.write(`event: status\ndata: ${raw}\n\n`)
       }
     } catch {
       // Malformed message — skip silently

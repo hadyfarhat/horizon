@@ -59,7 +59,10 @@ export function connectAISStream(
       if (cancelled) return
       onStatusChange('reconnecting')
       es?.close()
-      connect()
+      // Delay before reconnecting to give the server-side WebSocket time to close.
+      // Without this, the new connection reaches AISStream before the old one is
+      // released, triggering a "concurrent connections exceeded" error.
+      setTimeout(connect, 3000)
     }, HEARTBEAT_TIMEOUT_MS)
   }
 
@@ -92,6 +95,10 @@ export function connectAISStream(
       if (status === 'connected')    onStatusChange('connected')
       if (status === 'disconnected') onStatusChange('reconnecting')
     })
+
+    // Server heartbeat — resets the watchdog so a quiet-but-alive connection
+    // (no vessels in range) doesn't trigger a spurious reconnect
+    es.addEventListener('heartbeat', () => resetHeartbeat())
 
     // SSE connection to the proxy was lost — EventSource will auto-reconnect
     es.onerror = () => {
