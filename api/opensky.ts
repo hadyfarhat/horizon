@@ -1,7 +1,8 @@
-// Edge runtime runs on Cloudflare's network rather than AWS Lambda.
-// OpenSky blocks AWS IP ranges but not Cloudflare, so this avoids ETIMEDOUT errors.
-export const config = { runtime: 'edge' }
+import type { VercelRequest, VercelResponse } from '@vercel/node'
 
+// Runs as a Node.js serverless function rather than an edge function.
+// OpenSky blocks US-region cloud IPs; deploying to a European Vercel region
+// (fra1/cdg1) avoids this without needing the edge runtime.
 const TOKEN_URL  = 'https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token'
 
 // Restrict to Northern Europe — consistent with the AISStream bounding box
@@ -12,7 +13,6 @@ const CLIENT_ID     = process.env.VITE_OPENSKY_CLIENT_ID     ?? ''
 const CLIENT_SECRET = process.env.VITE_OPENSKY_CLIENT_SECRET ?? ''
 
 // Exchanges client credentials for a Bearer token.
-// Edge functions are stateless so the token cannot be cached across requests.
 async function getAccessToken(): Promise<string> {
   const body = new URLSearchParams({
     grant_type:    'client_credentials',
@@ -34,7 +34,7 @@ async function getAccessToken(): Promise<string> {
   return json.access_token
 }
 
-export default async function handler() {
+export default async function handler(_req: VercelRequest, res: VercelResponse) {
   try {
     const token = await getAccessToken()
 
@@ -43,16 +43,13 @@ export default async function handler() {
     })
 
     if (!response.ok) {
-      return Response.json(
-        { error: `OpenSky returned ${response.status}` },
-        { status: 502 },
-      )
+      return res.status(502).json({ error: `OpenSky returned ${response.status}` })
     }
 
     const data = await response.json()
-    return Response.json(data)
+    return res.json(data)
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
-    return Response.json({ error: message }, { status: 500 })
+    return res.status(500).json({ error: message })
   }
 }
