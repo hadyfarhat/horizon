@@ -2,19 +2,44 @@
 // OpenSky blocks AWS IP ranges but not Cloudflare, so this avoids ETIMEDOUT errors.
 export const config = { runtime: 'edge' }
 
+const TOKEN_URL  = 'https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token'
+
 // Restrict to Northern Europe — consistent with the AISStream bounding box
 // and dramatically reduces response size compared to a global query.
 const STATES_URL = 'https://opensky-network.org/api/states/all?lamin=48&lomin=-10&lamax=72&lomax=30'
 
-const USERNAME = process.env.VITE_OPENSKY_USERNAME ?? ''
-const PASSWORD = process.env.VITE_OPENSKY_PASSWORD ?? ''
+const CLIENT_ID     = process.env.VITE_OPENSKY_CLIENT_ID     ?? ''
+const CLIENT_SECRET = process.env.VITE_OPENSKY_CLIENT_SECRET ?? ''
+
+// Exchanges client credentials for a Bearer token.
+// Edge functions are stateless so the token cannot be cached across requests.
+async function getAccessToken(): Promise<string> {
+  const body = new URLSearchParams({
+    grant_type:    'client_credentials',
+    client_id:     CLIENT_ID,
+    client_secret: CLIENT_SECRET,
+  })
+
+  const res = await fetch(TOKEN_URL, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body:    body.toString(),
+  })
+
+  if (!res.ok) {
+    throw new Error(`Token request failed: ${res.status}`)
+  }
+
+  const json = await res.json() as { access_token: string }
+  return json.access_token
+}
 
 export default async function handler() {
   try {
-    // Basic Auth avoids the OAuth2 token exchange, which times out from Cloudflare's edge network.
-    const credentials = btoa(`${USERNAME}:${PASSWORD}`)
+    const token = await getAccessToken()
+
     const response = await fetch(STATES_URL, {
-      headers: { Authorization: `Basic ${credentials}` },
+      headers: { Authorization: `Bearer ${token}` },
     })
 
     if (!response.ok) {
