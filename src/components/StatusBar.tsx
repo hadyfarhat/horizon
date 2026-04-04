@@ -13,11 +13,11 @@ const WS_STATUS_CONFIG: Record<ConnectionStatus, { label: string; colour: string
   disconnected: { label: 'Disconnected', colour: '#F44336' },
 }
 
-// Label and colour for each OpenSky fetch state
+// Label and colour for each adsb.lol fetch state
 const OPENSKY_STATUS_CONFIG = {
-  loading: { label: 'OpenSky', colour: null    },  // spinner — no dot colour
-  ok:      { label: 'OpenSky', colour: '#4CAF50' },
-  error:   { label: 'OpenSky', colour: '#F44336' },
+  loading: { label: 'adsb.lol', colour: null    },  // spinner — no dot colour
+  ok:      { label: 'adsb.lol', colour: '#4CAF50' },
+  error:   { label: 'adsb.lol', colour: '#F44336' },
 }
 
 export default function StatusBar({ openSkyStatus, wsStatus }: StatusBarProps) {
@@ -26,7 +26,7 @@ export default function StatusBar({ openSkyStatus, wsStatus }: StatusBarProps) {
 
   return (
     <div className="status-bar">
-      {/* OpenSky status — spinner on initial load, green on success, red on fetch failure */}
+      {/* adsb.lol status — spinner on initial load, green on success, red on fetch failure */}
       <div className="status-item">
         {openSkyStatus === 'loading'
           ? <span className="spinner" aria-label="Loading aircraft" />

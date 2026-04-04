@@ -1,5 +1,7 @@
 # Horizon
 
+> **Note:** This project originally used the OpenSky Network API for live aircraft data. OpenSky has since blocked Cloudflare IP ranges (which Vercel's infrastructure uses), making it impossible to call from a deployed serverless environment. The project has been migrated to [adsb.lol](https://adsb.lol) as a result.
+
 **Maritime & Air Domain Awareness Dashboard** — live aircraft and vessel positions fused on a 3D globe.
 
 **Live demo:** https://horizon-demo-three.vercel.app

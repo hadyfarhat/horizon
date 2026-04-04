@@ -48,6 +48,7 @@
 .asset-feed__icon {
   font-size:   13px;
   flex-shrink: 0;
+  color:       rgba(255, 255, 255, 0.75);
 }
 
 .asset-feed__name {

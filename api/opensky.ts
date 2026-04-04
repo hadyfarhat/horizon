@@ -1,53 +1,34 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
+import type { ADSBAircraft, ADSBResponse } from '../src/types/ADSBLol'
 
-// Runs as a Node.js serverless function rather than an edge function.
-// OpenSky blocks US-region cloud IPs; deploying to a European Vercel region
-// (fra1/cdg1) avoids this without needing the edge runtime.
-const TOKEN_URL  = 'https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token'
+// 1000nm circle centred at 60°N 10°E covers the Northern Europe bounding box.
+// We then filter to the exact box before returning to keep the payload small.
+const ADSB_URL = 'https://api.adsb.lol/v2/lat/60/lon/10/dist/1000'
 
-// Restrict to Northern Europe — consistent with the AISStream bounding box
-// and dramatically reduces response size compared to a global query.
-const STATES_URL = 'https://opensky-network.org/api/states/all?lamin=48&lomin=-10&lamax=72&lomax=30'
-
-const CLIENT_ID     = process.env.VITE_OPENSKY_CLIENT_ID     ?? ''
-const CLIENT_SECRET = process.env.VITE_OPENSKY_CLIENT_SECRET ?? ''
-
-// Exchanges client credentials for a Bearer token.
-async function getAccessToken(): Promise<string> {
-  const body = new URLSearchParams({
-    grant_type:    'client_credentials',
-    client_id:     CLIENT_ID,
-    client_secret: CLIENT_SECRET,
-  })
-
-  const res = await fetch(TOKEN_URL, {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body:    body.toString(),
-  })
-
-  if (!res.ok) {
-    throw new Error(`Token request failed: ${res.status}`)
-  }
-
-  const json = await res.json() as { access_token: string }
-  return json.access_token
-}
+const LAT_MIN = 48, LAT_MAX = 72
+const LON_MIN = -10, LON_MAX = 30
 
 export default async function handler(_req: VercelRequest, res: VercelResponse) {
   try {
-    const token = await getAccessToken()
-
-    const response = await fetch(STATES_URL, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
+    const response = await fetch(ADSB_URL)
 
     if (!response.ok) {
-      return res.status(502).json({ error: `OpenSky returned ${response.status}` })
+      return res.status(502).json({ error: `adsb.lol returned ${response.status}` })
     }
 
-    const data = await response.json()
-    return res.json(data)
+    const data = await response.json() as ADSBResponse
+
+    // Filter to the bounding box; grounded/position-less aircraft are excluded here
+    // so the client normaliser never has to handle them
+    const filtered = (data.ac ?? []).filter((ac: ADSBAircraft) =>
+      ac.lat != null &&
+      ac.lon != null &&
+      ac.alt_baro !== 'ground' &&
+      ac.lat >= LAT_MIN && ac.lat <= LAT_MAX &&
+      ac.lon >= LON_MIN && ac.lon <= LON_MAX
+    )
+
+    return res.json({ ac: filtered })
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     return res.status(500).json({ error: message })
