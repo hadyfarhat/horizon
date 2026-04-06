@@ -27,31 +27,33 @@ export default function StatusBar({ openSkyStatus, wsStatus }: StatusBarProps) {
 
   return (
     <div className="status-bar-wrapper">
-      {/* adsb.lol status — spinner on initial load, green on success, red on fetch failure */}
-      <div className="status-item">
-        {openSkyStatus === 'loading'
-          ? <span className="spinner" aria-label="Loading aircraft" />
-          : <span className="status-dot" style={{ background: openSky.colour! }} />
-        }
-        <span className="status-label">{openSky.label}</span>
+      <div className="status-bar">
+        {/* adsb.lol status — spinner on initial load, green on success, red on fetch failure */}
+        <div className="status-item">
+          {openSkyStatus === 'loading'
+            ? <span className="spinner" aria-label="Loading aircraft" />
+            : <span className="status-dot" style={{ background: openSky.colour! }} />
+          }
+          <span className="status-label">{openSky.label}</span>
+        </div>
+
+        <div className="status-divider" />
+
+        {/* AISStream WebSocket connection status */}
+        <div className="status-item">
+          <span
+            className={`status-dot ${wsStatus === 'reconnecting' ? 'status-dot--pulse' : ''}`}
+            style={{ background: ws.colour }}
+          />
+          <span className="status-label">{ws.label}</span>
+        </div>
       </div>
 
-      <div className="status-divider" />
-
-      {/* AISStream WebSocket connection status */}
-      <div className="status-item">
-        <span
-          className={`status-dot ${wsStatus === 'reconnecting' ? 'status-dot--pulse' : ''}`}
-          style={{ background: ws.colour }}
-        />
-        <span className="status-label">{ws.label}</span>
-      </div>
-    </div>
-    {wsStatus === 'concurrent-limit' && (
-      <div className="status-notice">
-        Due to API limits, only one session can use AIS Stream at a time
-      </div>
-    )}
+      {wsStatus === 'concurrent-limit' && (
+        <div className="status-notice">
+          Due to API limits, only one session can use AIS Stream at a time
+        </div>
+      )}
     </div>
   )
 }
