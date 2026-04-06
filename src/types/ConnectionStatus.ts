@@ -1,5 +1,5 @@
 export type ConnectionStatus =
-  'connected' | 'reconnecting' | 'disconnected'
+  'connected' | 'reconnecting' | 'disconnected' | 'concurrent-limit'
 
 export interface ConnectionState {
   status:            ConnectionStatus

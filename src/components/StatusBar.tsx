@@ -8,9 +8,10 @@ interface StatusBarProps {
 
 // Label and colour for each WebSocket connection state
 const WS_STATUS_CONFIG: Record<ConnectionStatus, { label: string; colour: string }> = {
-  connected:    { label: 'AIS Stream',   colour: '#4CAF50' },
-  reconnecting: { label: 'Reconnecting', colour: '#FFA500' },
-  disconnected: { label: 'Disconnected', colour: '#F44336' },
+  connected:          { label: 'AIS Stream',   colour: '#4CAF50' },
+  reconnecting:       { label: 'Reconnecting', colour: '#FFA500' },
+  disconnected:       { label: 'Disconnected', colour: '#F44336' },
+  'concurrent-limit': { label: 'AIS Stream',   colour: '#FFA500' },
 }
 
 // Label and colour for each adsb.lol fetch state
@@ -25,7 +26,7 @@ export default function StatusBar({ openSkyStatus, wsStatus }: StatusBarProps) {
   const openSky = OPENSKY_STATUS_CONFIG[openSkyStatus]
 
   return (
-    <div className="status-bar">
+    <div className="status-bar-wrapper">
       {/* adsb.lol status — spinner on initial load, green on success, red on fetch failure */}
       <div className="status-item">
         {openSkyStatus === 'loading'
@@ -45,6 +46,12 @@ export default function StatusBar({ openSkyStatus, wsStatus }: StatusBarProps) {
         />
         <span className="status-label">{ws.label}</span>
       </div>
+    </div>
+    {wsStatus === 'concurrent-limit' && (
+      <div className="status-notice">
+        Due to API limits, only one session can use AIS Stream at a time
+      </div>
+    )}
     </div>
   )
 }

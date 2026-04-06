@@ -72,9 +72,12 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
       if (msg.MessageType === 'PositionReport') {
         res.write(`data: ${raw}\n\n`)
       } else {
-        // Forward non-position messages (e.g. auth errors) as status events so
-        // they're visible in the browser rather than silently dropped
-        res.write(`event: status\ndata: ${raw}\n\n`)
+        // Map known AISStream errors to specific status strings the client can act on
+        const error = ((msg as Record<string, unknown>).error as string | undefined) ?? ''
+        const status = error.toLowerCase().includes('concurrent')
+          ? 'concurrent-limit'
+          : raw
+        res.write(`event: status\ndata: ${status}\n\n`)
       }
     } catch {
       // Malformed message — skip silently

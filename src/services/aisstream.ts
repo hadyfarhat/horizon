@@ -92,8 +92,16 @@ export function connectAISStream(
     es.addEventListener('status', (event) => {
       resetHeartbeat()
       const status = (event as MessageEvent).data as string
-      if (status === 'connected')    onStatusChange('connected')
-      if (status === 'disconnected') onStatusChange('reconnecting')
+      if (status === 'connected')        onStatusChange('connected')
+      if (status === 'disconnected')     onStatusChange('reconnecting')
+      if (status === 'concurrent-limit') {
+        // Another session is already connected — stop reconnecting so we don't
+        // keep hammering the API. The user must close the other session and refresh.
+        cancelled = true
+        if (heartbeatTimer) clearTimeout(heartbeatTimer)
+        es?.close()
+        onStatusChange('concurrent-limit')
+      }
     })
 
     // Server heartbeat — resets the watchdog so a quiet-but-alive connection
