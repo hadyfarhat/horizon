@@ -7,6 +7,7 @@ import { calculateConfidence } from './utils/confidence'
 import Globe from './components/Globe'
 import Sidebar from './components/Sidebar'
 import StatusBar from './components/StatusBar'
+import GitHubLink from './components/GitHubLink'
 
 const AIRCRAFT_CAP           = 100
 const VESSEL_CAP             = 50
@@ -118,6 +119,7 @@ export default function App() {
         selectedAsset={selectedAsset}
         onSelectAsset={setSelectedAsset}
       />
+      <GitHubLink />
     </div>
   )
 }
