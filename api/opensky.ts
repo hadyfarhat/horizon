@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import type { ADSBAircraft, ADSBResponse } from '../src/types/ADSBLol'
+import type { ADSBAircraft, ADSBResponse } from '../src/types/ADSBLol.js'
 
 // 1000nm circle centred at 60°N 10°E covers the Northern Europe bounding box.
 // We then filter to the exact box before returning to keep the payload small.

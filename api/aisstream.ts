@@ -73,7 +73,7 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
         res.write(`data: ${raw}\n\n`)
       } else {
         // Map known AISStream errors to specific status strings the client can act on
-        const error = ((msg as Record<string, unknown>).error as string | undefined) ?? ''
+        const error = ((msg as unknown as Record<string, unknown>).error as string | undefined) ?? ''
         const status = error.toLowerCase().includes('concurrent')
           ? 'concurrent-limit'
           : raw
